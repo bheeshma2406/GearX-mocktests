@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "@/styles/question-image.css";
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { AuthProvider } from '@/contexts/AuthContext';
+import AuthButton from '@/components/AuthButton';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,7 +32,17 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ThemeProvider>
-          {children}
+          <AuthProvider>
+            <div className="min-h-dvh flex flex-col">
+              <header className="sticky top-0 z-40 border-b bg-white/60 dark:bg-black/60 backdrop-blur">
+                <div className="mx-auto max-w-6xl w-full flex items-center justify-between p-3">
+                  <a href="/" className="font-semibold">GearX</a>
+                  <AuthButton />
+                </div>
+              </header>
+              <div className="flex-1">{children}</div>
+            </div>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
