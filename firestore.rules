@@ -1,0 +1,39 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // DEV-ONLY SAMPLE RULES
+    // WARNING: These rules are open and meant for local/testing.
+    // Tighten before production (add auth and validation).
+
+    match /gearx-tests/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /gearx-questions/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /gearx-sessions/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /gearx-results/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /gearx-bookmarks/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /gearx-mistakes/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
+}

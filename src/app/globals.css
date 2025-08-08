@@ -3,6 +3,41 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --card: #ffffff;
+  --card-foreground: #020817;
+  --primary: #3b82f6;
+  --primary-foreground: #f8fafc;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+  --destructive: #ef4444;
+  --destructive-foreground: #f8fafc;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #3b82f6;
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --card: #1a1a1a;
+  --card-foreground: #f8fafc;
+  --primary: #3b82f6;
+  --primary-foreground: #f8fafc;
+  --secondary: #262626;
+  --secondary-foreground: #f8fafc;
+  --muted: #262626;
+  --muted-foreground: #94a3b8;
+  --accent: #262626;
+  --accent-foreground: #f8fafc;
+  --destructive: #dc2626;
+  --destructive-foreground: #f8fafc;
+  --border: #262626;
+  --input: #262626;
+  --ring: #3b82f6;
 }
 
 @theme inline {
@@ -12,15 +47,268 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+* {
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Animation for blob background */
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+/* Animation for gradient shift */
+@keyframes gradient-shift {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.animate-gradient-shift {
+  animation: gradient-shift 15s ease infinite;
+}
+
+/* Animation for gradient X movement */
+@keyframes gradient-x {
+  0%, 100% {
+    transform: translateX(-200%) translateY(-50%);
+  }
+  50% {
+    transform: translateX(200%) translateY(-50%);
+  }
+}
+
+.animate-gradient-x {
+  animation: gradient-x 20s ease-in-out infinite;
+}
+
+/* Animation for gradient Y movement */
+@keyframes gradient-y {
+  0%, 100% {
+    transform: translateY(-200%) translateX(-50%);
+  }
+  50% {
+    transform: translateY(200%) translateX(-50%);
+  }
+}
+
+.animate-gradient-y {
+  animation: gradient-y 15s ease-in-out infinite reverse;
+}
+
+/* --- Global Image Control --- */
+#question-image, #sol-question-image, #bm-question-image, #sol-solution-image {
+  /* max-width: 60%; -- Removed to allow test-styles.css to control sizing */
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: white;
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  /* Performance optimizations */
+  image-rendering: auto;
+  transform: translateZ(0); /* Hardware acceleration */
+  will-change: opacity; /* Hint for browser optimization */
+}
+
+/* Ensure all question images are uniform */
+.question-image {
+  /* max-width: 60%; -- Removed to allow test-styles.css to control sizing */
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: white;
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  /* Performance optimizations */
+  image-rendering: auto;
+  transform: translateZ(0); /* Hardware acceleration */
+  will-change: opacity; /* Hint for browser optimization */
+}
+
+/* Optimize for Next.js Image component */
+.question-image img {
+  width: 100% !important;
+  height: auto !important;
+  position: relative !important;
+}
+
+/* --- NTA JEE Mains Official Shapes --- */
+
+/* Legend shapes */
+.legend-answered {
+  background: #07AD5E;
+  color: white;
+  clip-path: polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%);
+  width: 28px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.legend-not-answered {
+  background: #C24417;
+  color: white;
+  clip-path: polygon(0% 0%, 100% 0%, 80% 100%, 20% 100%);
+  width: 28px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.legend-marked {
+  background: #371E6D;
+  color: white;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.legend-not-visited {
+  background: #F8F8F8;
+  color: #333;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  width: 28px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Question index button variants */
+.question-answered {
+  background: #07AD5E;
+  color: white;
+  clip-path: polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%);
+  width: 40px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.question-not-answered {
+  background: #C24417;
+  color: white;
+  clip-path: polygon(0% 0%, 100% 0%, 80% 100%, 20% 100%);
+  width: 40px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.question-marked {
+  background: #371E6D;
+  color: white;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.question-answered-marked {
+  background: #371E6D;
+  color: white;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  position: relative;
+}
+
+.question-answered-marked::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 10px;
+  height: 10px;
+  background: #07AD5E;
+  border-radius: 50%;
+  border: 1px solid white;
+}
+
+.question-not-visited {
+  background: #F8F8F8;
+  color: #333;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  width: 40px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Current question highlight */
+.current-question {
+  box-shadow: 0 0 0 2px #000 !important;
 }

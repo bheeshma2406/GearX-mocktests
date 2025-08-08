@@ -1,0 +1,54 @@
+/* Shared Question/Solution image sizing (same as /test/.../start) */
+
+/* Base: fixed width with natural height for readability */
+.question-image {
+  width: 620px !important;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: block;
+  margin: 0 auto;
+  transition: all 0.3s ease;
+}
+
+/* Hover effect */
+.question-image:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: scale(1.02);
+}
+
+/* Responsive sizing */
+@media (max-width: 1200px) {
+  .question-image {
+    width: 485px !important;
+    height: auto;
+  }
+}
+
+@media (max-width: 900px) {
+  .question-image {
+    width: 400px !important;
+    height: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .question-image {
+    width: 365px !important;
+    height: auto;
+  }
+}
+
+@media (max-width: 600px) {
+  .question-image {
+    width: 310px !important;
+    height: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .question-image {
+    width: 260px !important;
+    height: auto;
+  }
+}

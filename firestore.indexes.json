@@ -1,0 +1,22 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "gearx-mistakes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "attemptId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "gearx-mistakes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "attemptId", "order": "ASCENDING" },
+        { "fieldPath": "questionId", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
