@@ -338,13 +338,16 @@ export async function getTestNameById(testId: string): Promise<string | null> {
 
 /**
  * Toggle bookmark for a question. Returns true if bookmarked after operation, false if removed.
+ * If userId is not passed, it will be taken from the current auth user.
  */
 export async function toggleBookmark(
-  userId: string,
+  userId: string | undefined,
   payload: { testId: string; questionId: string; subject: 'Mathematics' | 'Physics' | 'Chemistry' }
 ): Promise<boolean> {
   try {
-    const bookmarkId = `${userId}_${payload.questionId}`;
+    const uid = auth.currentUser?.uid ?? userId;
+    if (!uid) throw new Error('Not signed in');
+    const bookmarkId = `${uid}_${payload.questionId}`;
     const ref = doc(db, COLLECTIONS.BOOKMARKS, bookmarkId);
     const snap = await getDoc(ref);
     if (snap.exists()) {
@@ -352,7 +355,7 @@ export async function toggleBookmark(
       return false;
     } else {
       await setDoc(ref, {
-        userId,
+        userId: uid,
         testId: payload.testId,
         questionId: payload.questionId,
         subject: payload.subject,
@@ -368,10 +371,13 @@ export async function toggleBookmark(
 
 /**
  * Get bookmarks for a user (optionally for a specific test)
+ * If userId is not provided, uses the current auth user.
  */
-export async function getBookmarksForUser(userId: string, testId?: string): Promise<BookmarkDoc[]> {
+export async function getBookmarksForUser(userId?: string, testId?: string): Promise<BookmarkDoc[]> {
   try {
-    const q = query(collection(db, COLLECTIONS.BOOKMARKS), where('userId', '==', userId));
+    const uid = userId ?? auth.currentUser?.uid;
+    if (!uid) return [];
+    const q = query(collection(db, COLLECTIONS.BOOKMARKS), where('userId', '==', uid));
     const snap = await getDocs(q);
     let items = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as BookmarkDoc[];
     if (testId) items = items.filter(b => b.testId === testId);
@@ -392,11 +398,15 @@ export async function getBookmarkedQuestionIdSet(userId: string, testId?: string
 
 /**
  * Add a mistake note for a question
+ * Enforces userId from the current auth session if available.
  */
 export async function addMistakeNote(note: Omit<MistakeNoteDoc, 'id' | 'createdAt'>): Promise<string> {
   try {
+    const uid = auth.currentUser?.uid ?? note.userId;
+    if (!uid) throw new Error('Not signed in');
     const ref = await addDoc(collection(db, COLLECTIONS.MISTAKES), {
       ...note,
+      userId: uid,
       createdAt: serverTimestamp()
     });
     return ref.id;
@@ -481,12 +491,16 @@ export async function getMistakeNotesForAttempt(
 
 /**
  * Upsert a mistake note for a user+attempt+question: creates if missing, updates if exists
+ * Enforces userId from the current auth session if available.
  */
 export async function upsertMistakeNote(
   note: Omit<MistakeNoteDoc, 'id' | 'createdAt'>
 ): Promise<{ id: string; updated: boolean }> {
   try {
-    const existing = await getMistakeNote(note.userId, note.attemptId, note.questionId);
+    const uid = auth.currentUser?.uid ?? note.userId;
+    if (!uid) throw new Error('Not signed in');
+
+    const existing = await getMistakeNote(uid, note.attemptId, note.questionId);
     if (existing?.id) {
       await updateDoc(doc(db, COLLECTIONS.MISTAKES, existing.id), {
         note: note.note,
@@ -497,6 +511,7 @@ export async function upsertMistakeNote(
     }
     const ref = await addDoc(collection(db, COLLECTIONS.MISTAKES), {
       ...note,
+      userId: uid,
       createdAt: serverTimestamp()
     });
     return { id: ref.id, updated: false };
