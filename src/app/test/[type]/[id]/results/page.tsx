@@ -11,6 +11,8 @@ export default function ResultsPage() {
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
   const params = useParams();
+  // Auth (used to scope results reads to the signed-in user)
+  const { user, loading: authLoading } = useAuth();
   const [result, setResult] = useState<TestResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,6 +25,15 @@ export default function ResultsPage() {
   useEffect(() => {
     const fetchResult = async () => {
       try {
+        // Wait for auth to resolve
+        if (authLoading) return;
+
+        // Require sign-in to read user-scoped results (per Firestore rules)
+        if (!user?.uid) {
+          setError('Please sign in to view results');
+          return;
+        }
+
         // Get sessionId from URL search params
         const urlParams = new URLSearchParams(window.location.search);
         const sessionId = urlParams.get('sessionId');
@@ -32,7 +43,7 @@ export default function ResultsPage() {
           return;
         }
 
-        const fetchedResult = await getTestResultBySession(sessionId);
+        const fetchedResult = await getTestResultBySession(sessionId, user.uid);
         if (!fetchedResult) {
           setError('No result found for this session');
           return;
@@ -106,7 +117,7 @@ export default function ResultsPage() {
       }
     };
     fetchResult();
-  }, []);
+  }, [authLoading, user, params.id]);
 
   if (loading) {
     return (
