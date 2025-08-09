@@ -129,7 +129,26 @@ export async function getTestSession(sessionId: string): Promise<TestSession | n
   try {
     const sessionDoc = await getDoc(doc(db, COLLECTIONS.SESSIONS, sessionId));
     if (sessionDoc.exists()) {
-      const data = sessionDoc.data() as TestSession;
+      const raw = sessionDoc.data() as any;
+
+      // Normalize Firestore Timestamp/string -> JS Date for time fields
+      const normalizeDate = (v: any): Date | undefined => {
+        if (!v) return undefined;
+        if (v instanceof Date) return v;
+        if (typeof v?.toDate === 'function') return v.toDate();
+        if (typeof v === 'string' || typeof v === 'number') {
+          const d = new Date(v);
+          return isNaN(d.getTime()) ? undefined : d;
+        }
+        return undefined;
+      };
+
+      const data: TestSession = {
+        ...(raw as any),
+        startTime: normalizeDate(raw.startTime) || new Date(), // fallback to now if missing
+        endTime: normalizeDate(raw.endTime),
+      } as TestSession;
+
       // Ensure the ID is set correctly
       return { ...data, id: sessionDoc.id };
     }
