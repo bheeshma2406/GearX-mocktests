@@ -4,7 +4,6 @@ import "./globals.css";
 import "@/styles/question-image.css";
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AuthProvider } from '@/contexts/AuthContext';
-import TopBar from '@/components/TopBar';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,7 +33,6 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <div className="min-h-dvh flex flex-col">
-              <TopBar />
               <div className="flex-1">{children}</div>
             </div>
           </AuthProvider>

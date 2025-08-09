@@ -2,38 +2,57 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // DEV-ONLY SAMPLE RULES
-    // WARNING: These rules are open and meant for local/testing.
-    // Tighten before production (add auth and validation).
+    // Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
 
+    // For existing docs
+    function isOwner() {
+      return isSignedIn() && request.auth.uid == resource.data.userId;
+    }
+
+    // For creates (no resource yet)
+    function isCreatingOwn() {
+      return isSignedIn() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Public read-only content
     match /gearx-tests/{docId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if false;
     }
 
     match /gearx-questions/{docId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if false;
     }
 
-    match /gearx-sessions/{docId} {
+    // Percentile maps are public read; writes are disabled unless you add admin claims later
+    match /gearx-percentiles/{docId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if false;
+    }
+
+    // Per-user documents
+    match /gearx-sessions/{docId} {
+      allow create: if isCreatingOwn();
+      allow read, update, delete: if isOwner();
     }
 
     match /gearx-results/{docId} {
-      allow read: if true;
-      allow write: if true;
+      allow create: if isCreatingOwn();
+      allow read, update, delete: if isOwner();
     }
 
     match /gearx-bookmarks/{docId} {
-      allow read: if true;
-      allow write: if true;
+      allow create: if isCreatingOwn();
+      allow read, update, delete: if isOwner();
     }
 
     match /gearx-mistakes/{docId} {
-      allow read: if true;
-      allow write: if true;
+      allow create: if isCreatingOwn();
+      allow read, update, delete: if isOwner();
     }
   }
 }
