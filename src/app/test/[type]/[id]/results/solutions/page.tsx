@@ -19,8 +19,7 @@ import {
 } from '@/lib/firebaseData';
 
 import { Question, SolutionItem, TestSession } from '@/types';
-
-const USER_ID = 'guest';
+import { useAuth } from '@/contexts/AuthContext';
 
 type StatusFilter = 'All' | 'Correct' | 'Incorrect' | 'Skipped' | 'Review';
 type SubjectFilter = 'All' | 'Physics' | 'Chemistry' | 'Mathematics';
@@ -63,6 +62,7 @@ export default function SolutionsPage() {
   const router = useRouter();
   const params = useParams();
   const { type, id } = params as { type: string; id: string };
+  const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -98,11 +98,19 @@ export default function SolutionsPage() {
           setLoading(false);
           return;
         }
+        
+        if (!user) {
+          console.log('⚠️ Solutions: No authenticated user');
+          setError('Please sign in to view solutions');
+          setLoading(false);
+          return;
+        }
+
         const [sess, qs, bset, notes] = await Promise.all([
           getTestSession(sessionId),
           getQuestionsByTestId(id),
-          getBookmarkedQuestionIdSet(USER_ID, id),
-          getMistakeNotesForAttempt(USER_ID, sessionId)
+          getBookmarkedQuestionIdSet(user.uid, id),
+          getMistakeNotesForAttempt(user.uid, sessionId)
         ]);
  
         setSession(sess);
@@ -131,7 +139,7 @@ export default function SolutionsPage() {
     };
     run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, sessionId]);
+  }, [id, sessionId, user]);
 
   // Safety net: if something goes wrong and loading never flips, fail fast with a visible message
   useEffect(() => {
@@ -346,7 +354,11 @@ export default function SolutionsPage() {
 
   const handleToggleBookmark = async (questionId: string, subject: Question['subject']) => {
     try {
-      const after = await toggleBookmark(USER_ID, { testId: id, questionId, subject });
+      if (!user) {
+        alert('Please sign in to manage bookmarks');
+        return;
+      }
+      const after = await toggleBookmark(user.uid, { testId: id, questionId, subject });
       setBookmarks((prev) => {
         const next = new Set(prev);
         if (after) next.add(questionId);
@@ -365,10 +377,10 @@ export default function SolutionsPage() {
   const [mistakeOpen, setMistakeOpen] = useState(false);
 
   const submitMistake = async (payload: { text: string; tags: string[] }) => {
-    if (!activeItem) return;
+    if (!activeItem || !user) return;
     try {
       const res = await upsertMistakeNote({
-        userId: USER_ID,
+        userId: user.uid,
         attemptId: sessionId,
         testId: id,
         questionId: activeItem.question.id,

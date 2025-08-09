@@ -27,8 +27,7 @@ import {
   getUserResults,
 } from '@/lib/firebaseData';
 import { BookmarkDoc, Question, TestSession } from '@/types';
-
-const USER_ID = 'guest';
+import { useAuth } from '@/contexts/AuthContext';
 
 type SubjectFilter = 'All' | 'Mathematics' | 'Physics' | 'Chemistry';
 type LevelFilter = 'All' | 'Easy' | 'Medium' | 'Hard';
@@ -47,6 +46,7 @@ type Item = {
 };
 
 export default function JEEBookmarksPage() {
+  const { user } = useAuth();
   // Data
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -85,7 +85,15 @@ export default function JEEBookmarksPage() {
         setLoading(true);
         setError(null);
 
-        const raw = await getBookmarksForUser(USER_ID);
+        if (!user) {
+          console.log('⚠️ JEE Bookmarks: No authenticated user');
+          setBookmarks([]);
+          setItems([]);
+          setLoading(false);
+          return;
+        }
+
+        const raw = await getBookmarksForUser(user.uid);
         if (raw.length === 0) {
           setBookmarks([]);
           setItems([]);
@@ -175,13 +183,14 @@ export default function JEEBookmarksPage() {
     };
 
     run();
-  }, []);
+  }, [user]);
 
   // Load user's mistake notes (latest per question) + their sessions (for status derivation)
   useEffect(() => {
     const run = async () => {
       try {
-        const notes = await getMistakeNotesForUser(USER_ID);
+        if (!user) return;
+        const notes = await getMistakeNotesForUser(user.uid);
         // pick the latest note per questionId
         const byQ: Record<string, { note: string; tags: string[]; attemptId: string; id?: string; _created?: number }> = {};
         (notes as any[]).forEach((n) => {
@@ -215,7 +224,7 @@ export default function JEEBookmarksPage() {
       }
     };
     run();
-  }, []);
+  }, [user]);
 
   // Build sessions by latest result per test (fallback when no Mistake Note exists)
   useEffect(() => {
@@ -511,7 +520,11 @@ export default function JEEBookmarksPage() {
 
   const handleToggleBookmark = async (item: Item) => {
     try {
-      const after = await toggleBookmark(USER_ID, {
+      if (!user) {
+        alert('Please sign in to manage bookmarks');
+        return;
+      }
+      const after = await toggleBookmark(user.uid, {
         testId: item.testId,
         questionId: item.question.id,
         subject: item.question.subject,
@@ -527,14 +540,14 @@ export default function JEEBookmarksPage() {
   };
 
   const submitMistake = async (payload: { text: string; tags: string[] }) => {
-    if (!activeItem) return;
+    if (!activeItem || !user) return;
     const existing = notesByQ[activeItem.question.id];
     if (!existing?.attemptId) {
       alert('Create this note from Solutions page first.');
       return;
     }
     const res = await upsertMistakeNote({
-      userId: USER_ID,
+      userId: user.uid,
       attemptId: existing.attemptId,
       testId: activeItem.testId,
       questionId: activeItem.question.id,

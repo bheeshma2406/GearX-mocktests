@@ -14,8 +14,7 @@ import {
   getTestSession
 } from '@/lib/firebaseData';
 import { MistakeNoteDoc, Question, TestSession } from '@/types';
-
-const USER_ID = 'guest';
+import { useAuth } from '@/contexts/AuthContext';
 
 type MistakeWithQuestion = MistakeNoteDoc & { question?: Question };
 
@@ -24,6 +23,7 @@ type LevelFilter = 'All' | 'Easy' | 'Medium' | 'Hard';
 type TimeEffFilter = 'All' | 'Perfect' | 'Overtime' | 'Waste' | 'OvertimeMiss';
 
 export default function JEEMistakesPage() {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [notes, setNotes] = useState<MistakeWithQuestion[]>([]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -57,7 +57,14 @@ export default function JEEMistakesPage() {
         setLoading(true);
         setError(null);
 
-        const raw = await getMistakeNotesForUser(USER_ID);
+        if (!user) {
+          console.log('⚠️ JEE Mistakes: No authenticated user');
+          setNotes([]);
+          setLoading(false);
+          return;
+        }
+
+        const raw = await getMistakeNotesForUser(user.uid);
         if (raw.length === 0) {
           setNotes([]);
           setSessionsByAttempt({});
@@ -143,7 +150,7 @@ export default function JEEMistakesPage() {
     };
 
     run();
-  }, []);
+  }, [user]);
 
   const allTags = useMemo(() => {
     const s = new Set<string>();

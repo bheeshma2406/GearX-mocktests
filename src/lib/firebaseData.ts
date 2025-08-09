@@ -239,7 +239,9 @@ export async function getTestResultBySession(sessionId: string, userId?: string)
 export async function getUserResults(userId?: string): Promise<TestResult[]> {
   try {
     const uid = userId ?? auth.currentUser?.uid;
-    if (!uid) return [];
+    if (!uid) {
+      return [];
+    }
     const resultsSnapshot = await getDocs(
       query(
         collection(db, COLLECTIONS.RESULTS),
@@ -277,55 +279,38 @@ export async function getAllTestResults(): Promise<TestResult[]> {
 }
 
 // Get previous test result for comparison (same test type, excluding current session)
-export async function getPreviousTestResult(currentSessionId: string, testType: string): Promise<TestResult | null> {
+/**
+ * Get the user's previous test result (same testType, excluding current session).
+ * Reads are scoped to the signed-in user to satisfy security rules.
+ * Requires composite index on gearx-results: userId Asc, submittedAt Desc.
+ */
+export async function getPreviousTestResult(
+  currentSessionId: string,
+  testType: string,
+  userId?: string
+): Promise<TestResult | null> {
   try {
-    console.log('📊 Firebase: Fetching previous result for comparison:', { currentSessionId, testType });
-    
-    // First, get all results and filter manually to avoid index issues
-    const resultsSnapshot = await getDocs(
-      query(collection(db, COLLECTIONS.RESULTS), orderBy('submittedAt', 'desc'))
+    const uid = userId ?? auth.currentUser?.uid;
+    if (!uid) return null;
+
+    // Restrict read to current user; order by submittedAt desc then filter in memory
+    const snap = await getDocs(
+      query(
+        collection(db, COLLECTIONS.RESULTS),
+        where('userId', '==', uid),
+        orderBy('submittedAt', 'desc'),
+        limit(25)
+      )
     );
-    
-    console.log('📊 Firebase: Total results found:', resultsSnapshot.size);
-    
-    // Filter for same test type (case-insensitive) and exclude current session
-    const results = resultsSnapshot.docs
-      .map(doc => {
-        const d = doc.data() as any;
-        return ({ ...(d as any), id: doc.id } as TestResult);
-      })
-      .filter(result => {
-        const isSameType = result.testType?.toLowerCase() === testType.toLowerCase();
-        const isDifferentSession = result.sessionId !== currentSessionId;
-        console.log('📊 Filtering result:', {
-          sessionId: result.sessionId,
-          testType: result.testType,
-          isSameType,
-          isDifferentSession,
-          submittedAt: result.submittedAt
-        });
-        return isSameType && isDifferentSession;
-      })
-      .sort((a, b) => {
-        // Sort by submittedAt descending to get most recent first
-        const aTime = (a as any)?.submittedAt?.toDate ? (a as any).submittedAt.toDate().getTime() :
-                     (typeof (a as any).submittedAt === 'string' ? new Date((a as any).submittedAt).getTime() : (a as any).submittedAt instanceof Date ? (a as any).submittedAt.getTime() : 0);
-        const bTime = (b as any)?.submittedAt?.toDate ? (b as any).submittedAt.toDate().getTime() :
-                     (typeof (b as any).submittedAt === 'string' ? new Date((b as any).submittedAt).getTime() : (b as any).submittedAt instanceof Date ? (b as any).submittedAt.getTime() : 0);
-        return bTime - aTime;
-      });
-    
-    console.log('📊 Firebase: Found previous results after filtering:', results.length);
-    if (results.length > 0) {
-      console.log('📊 Firebase: Most recent previous result:', {
-        sessionId: results[0].sessionId,
-        testType: results[0].testType,
-        score: results[0].overallResult?.totalScore,
-        submittedAt: results[0].submittedAt
-      });
-    }
-    
-    return results.length > 0 ? results[0] : null;
+
+    const results = snap.docs
+      .map(d => ({ id: d.id, ...(d.data() as any) } as TestResult))
+      .filter(r =>
+        r.sessionId !== currentSessionId &&
+        (r.testType || '').toLowerCase() === (testType || '').toLowerCase()
+      );
+
+    return results.length ? results[0] : null;
   } catch (error) {
     console.error('❌ Firebase: Error fetching previous test result:', error);
     return null;
@@ -370,23 +355,63 @@ export async function toggleBookmark(
   payload: { testId: string; questionId: string; subject: 'Mathematics' | 'Physics' | 'Chemistry' }
 ): Promise<boolean> {
   try {
-    const uid = auth.currentUser?.uid ?? userId;
+    const uid = userId ?? auth.currentUser?.uid;
     if (!uid) throw new Error('Not signed in');
+    
     const bookmarkId = `${uid}_${payload.questionId}`;
     const ref = doc(db, COLLECTIONS.BOOKMARKS, bookmarkId);
-    const snap = await getDoc(ref);
-    if (snap.exists()) {
-      await deleteDoc(ref);
-      return false;
-    } else {
-      await setDoc(ref, {
-        userId: uid,
-        testId: payload.testId,
-        questionId: payload.questionId,
-        subject: payload.subject,
-        createdAt: serverTimestamp()
-      });
-      return true;
+    
+    try {
+      const snap = await getDoc(ref);
+      
+      if (snap.exists()) {
+        const existingData = snap.data();
+        
+        // Check if we own this bookmark
+        if (existingData.userId !== uid) {
+          throw new Error('Cannot delete bookmark owned by another user');
+        }
+        
+        await deleteDoc(ref);
+        return false;
+      } else {
+        const bookmarkData = {
+          userId: uid,
+          testId: payload.testId,
+          questionId: payload.questionId,
+          subject: payload.subject,
+          createdAt: serverTimestamp()
+        };
+        
+        await setDoc(ref, bookmarkData);
+        return true;
+      }
+    } catch (innerError: any) {
+      // If we get a permission error on getDoc, the document might exist but we can't read it
+      // This happens when the bookmark was created before proper userId was set
+      if (innerError?.code === 'permission-denied') {
+        // Try to create it anyway - if it exists, this will fail
+        const bookmarkData = {
+          userId: uid,
+          testId: payload.testId,
+          questionId: payload.questionId,
+          subject: payload.subject,
+          createdAt: serverTimestamp()
+        };
+        
+        try {
+          await setDoc(ref, bookmarkData);
+          return true;
+        } catch (createError: any) {
+          // If create also fails, try to delete (in case we own it but can't read)
+          if (createError?.code === 'permission-denied') {
+            await deleteDoc(ref);
+            return false;
+          }
+          throw createError;
+        }
+      }
+      throw innerError;
     }
   } catch (error) {
     console.error('Error toggling bookmark:', error);
@@ -427,7 +452,7 @@ export async function getBookmarkedQuestionIdSet(userId: string, testId?: string
  */
 export async function addMistakeNote(note: Omit<MistakeNoteDoc, 'id' | 'createdAt'>): Promise<string> {
   try {
-    const uid = auth.currentUser?.uid ?? note.userId;
+    const uid = note.userId ?? auth.currentUser?.uid;
     if (!uid) throw new Error('Not signed in');
     const ref = await addDoc(collection(db, COLLECTIONS.MISTAKES), {
       ...note,
@@ -458,7 +483,9 @@ export async function deleteMistakeNote(noteId: string): Promise<void> {
  */
 export async function getMistakeNotesForUser(userId: string): Promise<MistakeNoteDoc[]> {
   try {
-    const q = query(collection(db, COLLECTIONS.MISTAKES), where('userId', '==', userId));
+    // If 'guest' is passed, use actual auth user
+    const uid = userId === 'guest' ? (auth.currentUser?.uid ?? userId) : userId;
+    const q = query(collection(db, COLLECTIONS.MISTAKES), where('userId', '==', uid));
     const snap = await getDocs(q);
     return snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as MistakeNoteDoc[];
   } catch (error) {
@@ -522,7 +549,7 @@ export async function upsertMistakeNote(
   note: Omit<MistakeNoteDoc, 'id' | 'createdAt'>
 ): Promise<{ id: string; updated: boolean }> {
   try {
-    const uid = auth.currentUser?.uid ?? note.userId;
+    const uid = note.userId ?? auth.currentUser?.uid;
     if (!uid) throw new Error('Not signed in');
 
     const existing = await getMistakeNote(uid, note.attemptId, note.questionId);
