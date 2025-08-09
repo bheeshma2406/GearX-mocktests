@@ -7,6 +7,7 @@ import { useImagePreloader } from '@/hooks/useImagePreloader';
 import SubmitConfirmationModal from '@/components/SubmitConfirmationModal';
 import TestSubmissionLoader from '@/components/TestSubmissionLoader';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   getQuestionsByTestId,
   getTestById,
@@ -22,9 +23,17 @@ import './test-styles.css';
 export default function TestPage() {
   const router = useRouter();
   const params = useParams();
+  const { user } = useAuth();
   const { type, id } = params;
   const idStr = Array.isArray(id) ? id[0] : (id as string | undefined) ?? '';
   const typeStr = Array.isArray(type) ? type[0] : (type as string | undefined) ?? '';
+
+  // Get user display name with fallbacks
+  const getUserDisplayName = () => {
+    if (user?.displayName) return user.displayName;
+    if (user?.email) return user.email.split('@')[0];
+    return 'Student';
+  };
 
   // Format time to H:MM:SS format
   const formatTime = (seconds: number): string => {
@@ -788,7 +797,7 @@ const correct = subjectWiseResults.reduce((sum, subjResult) => sum + subjResult.
           <div className="space-y-1">
             <div className="text-sm">
               <span className="text-gray-600 font-medium">Candidate Name: </span>
-              <span className="text-gray-900 font-semibold">Bheeshma Chari</span>
+              <span className="text-gray-900 font-semibold">{getUserDisplayName()}</span>
             </div>
             <div className="text-sm">
               <span className="text-gray-600 font-medium">Test Name: </span>
@@ -927,7 +936,7 @@ const correct = subjectWiseResults.reduce((sum, subjResult) => sum + subjResult.
                 onClose={handleCloseModal}
                 onSubmit={handleSubmitTest}
                 testSummary={testSummary}
-                candidateName="Bheeshma Chari"
+                candidateName={getUserDisplayName()}
                 testName={testName}
                 remainingTime={formatTime(timeRemaining)}
               />

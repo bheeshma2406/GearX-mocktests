@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import Papa, { ParseError, ParseResult } from 'papaparse';
 import { uploadTest, savePercentileMap } from '@/lib/firebaseData';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
 import type { Question, TestInfo } from '@/types';
 
 type CsvRow = {
@@ -251,13 +252,24 @@ function parsePercentileCsv(text: string, maxMarks: number): { pMap: number[] | 
 
 type UploadAsset = { secure_url: string; public_id: string };
 
-async function uploadToCloudinary(file: File, folder: string, publicId?: string): Promise<UploadAsset> {
+async function uploadToCloudinary(file: File, folder: string, publicId?: string, userEmail?: string): Promise<UploadAsset> {
   const form = new FormData();
   form.append('file', file);
   form.append('folder', folder);
   if (publicId) form.append('public_id', publicId);
 
-  const res = await fetch('/api/upload', { method: 'POST', body: form });
+  // Add admin authentication headers
+  const headers: HeadersInit = {};
+  if (userEmail) {
+    headers['x-admin-email'] = userEmail;
+    headers['x-admin-token'] = 'admin-access'; // Simple token for now
+  }
+
+  const res = await fetch('/api/upload', {
+    method: 'POST',
+    body: form,
+    headers
+  });
   const data = await res.json();
   if (!res.ok) {
     throw new Error(data?.error || 'Upload failed');
@@ -266,6 +278,9 @@ async function uploadToCloudinary(file: File, folder: string, publicId?: string)
 }
 
 export default function AdminImportPage() {
+  // Admin authentication check
+  const { isAdmin, user, loading } = useAdminAuth();
+
   // Step control
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
 
@@ -368,13 +383,13 @@ export default function AdminImportPage() {
 
         setLog(prev => [...prev, `Uploading Q${item.questionNumber} images...`]);
 
-        const qAsset = await uploadToCloudinary(qFile, qFolder, qPublic);
+        const qAsset = await uploadToCloudinary(qFile, qFolder, qPublic, user?.email || undefined);
         done += 1;
         setProgress(Math.round((done / total) * 100));
 
         let sUrl = qAsset.secure_url;
         if (sFile) {
-          const sAsset = await uploadToCloudinary(sFile, sFolder, sPublic);
+          const sAsset = await uploadToCloudinary(sFile, sFolder, sPublic, user?.email || undefined);
           sUrl = sAsset.secure_url;
           done += 1;
           setProgress(Math.round((done / total) * 100));
@@ -448,8 +463,34 @@ export default function AdminImportPage() {
     }
   }
 
+  // Show loading while checking authentication
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '18px',
+        color: '#666'
+      }}>
+        Checking admin access...
+      </div>
+    );
+  }
+
+  // This component will only render if user is admin (useAdminAuth handles redirects)
+  if (!isAdmin) {
+    return null;
+  }
+
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: 24 }}>
+      <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#f0f9ff', border: '1px solid #0ea5e9', borderRadius: 8 }}>
+        <div style={{ fontSize: 14, color: '#0369a1' }}>
+          👤 Signed in as admin: <strong>{user?.email}</strong>
+        </div>
+      </div>
       <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 16 }}>Admin: Bulk Import Test (Signed Cloudinary)</h1>
 
       <ol style={{ display: 'flex', gap: 12, listStyle: 'none', padding: 0, marginBottom: 16 }}>

@@ -1,8 +1,42 @@
 import { NextResponse } from 'next/server';
-import { initCloudinary } from '@/lib/cloudinary';
+import { initCloudinary, validateCloudinaryConfig } from '@/lib/cloudinary';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+// Define admin user emails
+const ADMIN_EMAILS = [
+  'admin@gearx.com',
+  'bheeshma@gearx.com', // Add your email here
+  'zoro11112004@gmail.com', // Your current email added as admin
+  // Add more admin emails as needed
+];
+
+// Simple auth check using custom header (for now)
+// In production, you should implement proper Firebase ID token verification
+async function verifyAdminAuth(request: Request): Promise<{ isAdmin: boolean; email?: string }> {
+  try {
+    // Check for custom admin header (set by client-side auth)
+    const adminEmail = request.headers.get('x-admin-email');
+    const adminToken = request.headers.get('x-admin-token');
+    
+    // Simple validation - in production, verify Firebase ID token
+    if (!adminEmail || !adminToken) {
+      return { isAdmin: false };
+    }
+    
+    // Check if email is in admin list
+    const isAdmin = ADMIN_EMAILS.includes(adminEmail);
+    
+    return {
+      isAdmin,
+      email: adminEmail
+    };
+  } catch (error) {
+    console.error('Auth verification failed:', error);
+    return { isAdmin: false };
+  }
+}
 
 type UploadResult = {
   secure_url: string;
@@ -20,6 +54,18 @@ async function fileToBuffer(file: File): Promise<Buffer> {
 
 export async function POST(req: Request) {
   try {
+    // Check admin authentication first
+    const { isAdmin, email } = await verifyAdminAuth(req);
+    if (!isAdmin) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Admin access required' },
+        { status: 403 }
+      );
+    }
+
+    // Validate Cloudinary configuration
+    validateCloudinaryConfig();
+    
     const form = await req.formData();
     const file = form.get('file') as File | null;
     const folder = (form.get('folder') as string) || 'gearx/questions';

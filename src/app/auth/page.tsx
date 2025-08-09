@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -8,24 +8,67 @@ type Tab = "signin" | "signup" | "reset";
 
 export default function AuthPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, loading, error, signIn, signUp, resetPassword, signOut } = useAuth();
 
   const [tab, setTab] = useState<Tab>("signin");
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [emailForReset, setEmailForReset] = useState("");
 
+  // Get redirect URL from search params
+  const redirectUrl = searchParams?.get('redirect') || '/';
+
+  // Debug logging
+  useEffect(() => {
+    console.log('Auth Page Debug:', {
+      user: user?.email,
+      loading,
+      redirectUrl,
+      hasUser: !!user
+    });
+  }, [user, loading, redirectUrl]);
+
+  // If user is already signed in, redirect them
+  useEffect(() => {
+    if (user && !loading) {
+      console.log('Redirecting signed-in user to:', redirectUrl);
+      // Add a small delay to prevent redirect loops
+      const timer = setTimeout(() => {
+        window.location.href = redirectUrl;
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [user, loading, router, redirectUrl]);
+
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault();
-    await signIn(email, password);
-    router.push("/");
+    console.log('Attempting sign in with:', email, 'redirect to:', redirectUrl);
+    try {
+      await signIn(email, password);
+      console.log('Sign in successful, redirecting to:', redirectUrl);
+      // Use window.location.href for more reliable redirect
+      setTimeout(() => {
+        window.location.href = redirectUrl;
+      }, 100);
+    } catch (error) {
+      console.error('Sign in error:', error);
+      // Error is handled by AuthContext
+    }
   }
 
   async function handleSignUp(e: React.FormEvent) {
     e.preventDefault();
-    await signUp(email, password);
-    router.push("/");
+    try {
+      await signUp(email, password);
+      // Use window.location.href for more reliable redirect
+      setTimeout(() => {
+        window.location.href = redirectUrl;
+      }, 100);
+    } catch (error) {
+      console.error('Sign up error:', error);
+      // Error is handled by AuthContext
+    }
   }
 
   async function handleReset(e: React.FormEvent) {
