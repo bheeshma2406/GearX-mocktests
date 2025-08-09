@@ -108,11 +108,14 @@ export async function getQuestionsByTestId(testId: string): Promise<Question[]> 
 // TEST SESSIONS & RESULTS
 // ===============================
 
-// Save test session
+/**
+ * Save test session; requires signed-in user to satisfy security rules.
+ */
 export async function saveTestSession(session: TestSession): Promise<string> {
   try {
     const uid = auth.currentUser?.uid;
-    const payload = uid ? { ...session, userId: uid } : { ...session };
+    if (!uid) throw new Error('Not signed in');
+    const payload = { ...session, userId: uid };
     const sessionRef = await addDoc(collection(db, COLLECTIONS.SESSIONS), payload);
     return sessionRef.id;
   } catch (error) {
@@ -171,11 +174,18 @@ export async function updateTestSession(sessionId: string, updates: Partial<Test
   }
 }
 
-// Save test result
+/**
+ * Save test result; enforces userId and submittedAt serverTimestamp for ordering.
+ */
 export async function saveTestResult(result: TestResult): Promise<string> {
   try {
     const uid = auth.currentUser?.uid;
-    const payload = uid ? { ...result, userId: uid } : { ...result };
+    if (!uid) throw new Error('Not signed in');
+    const payload = {
+      ...result,
+      userId: uid,
+      submittedAt: serverTimestamp(),
+    } as any;
     const resultRef = await addDoc(collection(db, COLLECTIONS.RESULTS), payload);
     return resultRef.id;
   } catch (error) {
@@ -184,16 +194,22 @@ export async function saveTestResult(result: TestResult): Promise<string> {
   }
 }
 
-// Get test result by session ID
-export async function getTestResultBySession(sessionId: string): Promise<TestResult | null> {
+/**
+ * Get test result by session ID.
+ * If userId is provided (recommended), we include it in the query so reads satisfy security rules.
+ */
+export async function getTestResultBySession(sessionId: string, userId?: string): Promise<TestResult | null> {
   try {
-    const resultsSnapshot = await getDocs(
-      query(collection(db, COLLECTIONS.RESULTS), where('sessionId', '==', sessionId))
-    );
+    const base = collection(db, COLLECTIONS.RESULTS);
+    const q = userId
+      ? query(base, where('sessionId', '==', sessionId), where('userId', '==', userId))
+      : query(base, where('sessionId', '==', sessionId));
+    const resultsSnapshot = await getDocs(q);
     if (resultsSnapshot.empty) {
       return null;
     }
-    return resultsSnapshot.docs[0].data() as TestResult;
+    const docData = resultsSnapshot.docs[0].data() as any;
+    return { id: resultsSnapshot.docs[0].id, ...(docData as any) } as TestResult;
   } catch (error) {
     console.error('Error fetching result by session:', error);
     return null;
@@ -219,31 +235,21 @@ export async function getUserResults(userId?: string): Promise<TestResult[]> {
   }
 }
 
-// Get all test results for history (with sessionId)
+/**
+ * Get all test results for the current user (used by history).
+ * Adds userId filter to satisfy security rules.
+ */
 export async function getAllTestResults(): Promise<TestResult[]> {
   try {
-    console.log('📄 Firebase: Fetching from collection:', COLLECTIONS.RESULTS);
-    const resultsSnapshot = await getDocs(
-      query(collection(db, COLLECTIONS.RESULTS), orderBy('submittedAt', 'desc'))
+    const uid = auth.currentUser?.uid;
+    if (!uid) return [];
+    const q = query(
+      collection(db, COLLECTIONS.RESULTS),
+      where('userId', '==', uid),
+      orderBy('submittedAt', 'desc')
     );
-    console.log('📄 Firebase: Documents found:', resultsSnapshot.size);
-    
-    const results = resultsSnapshot.docs.map(doc => {
-      const data = doc.data() as any;
-      console.log('📄 Firebase: Document data:', {
-        id: doc.id,
-        testType: data?.testType,
-        testName: data?.testName,
-        sessionId: data?.sessionId,
-        submittedAt: data?.submittedAt
-      });
-      return {
-        ...(data as any),
-        id: doc.id
-      } as TestResult;
-    });
-    
-    console.log('📄 Firebase: Returning results:', results.length);
+    const resultsSnapshot = await getDocs(q);
+    const results = resultsSnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) } as TestResult));
     return results;
   } catch (error) {
     console.error('❌ Firebase: Error fetching test results:', error);

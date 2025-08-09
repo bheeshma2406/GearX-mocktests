@@ -5,6 +5,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useParams, useRouter } from 'next/navigation';
 import { getTestResultBySession, getTestById, getPreviousTestResult } from '@/lib/firebaseData';
 import { TestResult } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function ResultsPage() {
   const { theme, toggleTheme } = useTheme();
