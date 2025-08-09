@@ -4,7 +4,7 @@ import "./globals.css";
 import "@/styles/question-image.css";
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AuthProvider } from '@/contexts/AuthContext';
-import AuthButton from '@/components/AuthButton';
+import TopBar from '@/components/TopBar';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,12 +34,7 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <div className="min-h-dvh flex flex-col">
-              <header className="sticky top-0 z-40 border-b bg-white/60 dark:bg-black/60 backdrop-blur">
-                <div className="mx-auto max-w-6xl w-full flex items-center justify-between p-3">
-                  <a href="/" className="font-semibold">GearX</a>
-                  <AuthButton />
-                </div>
-              </header>
+              <TopBar />
               <div className="flex-1">{children}</div>
             </div>
           </AuthProvider>

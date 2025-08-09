@@ -1,4 +1,4 @@
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import {
   collection,
   doc,
@@ -111,7 +111,9 @@ export async function getQuestionsByTestId(testId: string): Promise<Question[]> 
 // Save test session
 export async function saveTestSession(session: TestSession): Promise<string> {
   try {
-    const sessionRef = await addDoc(collection(db, COLLECTIONS.SESSIONS), session);
+    const uid = auth.currentUser?.uid;
+    const payload = uid ? { ...session, userId: uid } : { ...session };
+    const sessionRef = await addDoc(collection(db, COLLECTIONS.SESSIONS), payload);
     return sessionRef.id;
   } catch (error) {
     console.error('Error saving session:', error);
@@ -172,7 +174,9 @@ export async function updateTestSession(sessionId: string, updates: Partial<Test
 // Save test result
 export async function saveTestResult(result: TestResult): Promise<string> {
   try {
-    const resultRef = await addDoc(collection(db, COLLECTIONS.RESULTS), result);
+    const uid = auth.currentUser?.uid;
+    const payload = uid ? { ...result, userId: uid } : { ...result };
+    const resultRef = await addDoc(collection(db, COLLECTIONS.RESULTS), payload);
     return resultRef.id;
   } catch (error) {
     console.error('Error saving result:', error);
@@ -197,12 +201,18 @@ export async function getTestResultBySession(sessionId: string): Promise<TestRes
 }
 
 // Get user's test results
-export async function getUserResults(): Promise<TestResult[]> {
+export async function getUserResults(userId?: string): Promise<TestResult[]> {
   try {
+    const uid = userId ?? auth.currentUser?.uid;
+    if (!uid) return [];
     const resultsSnapshot = await getDocs(
-      query(collection(db, COLLECTIONS.RESULTS), orderBy('submittedAt', 'desc'))
+      query(
+        collection(db, COLLECTIONS.RESULTS),
+        where('userId', '==', uid),
+        orderBy('submittedAt', 'desc')
+      )
     );
-    return resultsSnapshot.docs.map(doc => doc.data() as TestResult);
+    return resultsSnapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) } as TestResult));
   } catch (error) {
     console.error('Error fetching results:', error);
     return [];
